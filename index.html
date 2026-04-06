@@ -1,4 +1,179 @@
-for(let k in allOrders){
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>Seven Gems Pro</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<style>
+body{background:#020617;color:white;font-family:Arial;text-align:center}
+.card{background:#1e293b;padding:15px;margin:10px;border-radius:12px}
+button{padding:10px;margin:5px;border:none;border-radius:8px;background:#22c55e;color:white}
+input{padding:10px;margin:5px;border-radius:8px;border:none}
+.hidden{display:none}
+.done{background:green}
+.pending{background:orange}
+</style>
+</head>
+
+<body>
+
+<h1>🔥 Seven Gems PRO</h1>
+
+<!-- LOGIN -->
+<div id="auth">
+<input id="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password">
+<button onclick="register()">Register</button>
+<button onclick="login()">Login</button>
+
+<hr>
+
+<button onclick="googleLogin()">Google</button>
+<button onclick="facebookLogin()">Facebook</button>
+
+<hr>
+
+<input id="phone" placeholder="+2010xxxxxxx">
+<div id="recaptcha"></div>
+<button onclick="sendCode()">Send Code</button>
+</div>
+
+<!-- STORE -->
+<div id="store" class="hidden">
+<h2>🎮 Store</h2>
+<div id="products"></div>
+<button onclick="logout()">Logout</button>
+<button onclick="openAdmin()">Admin</button>
+</div>
+
+<!-- ADMIN -->
+<div id="admin" class="hidden">
+
+<h2>⚙️ Dashboard</h2>
+
+<h3 id="stats"></h3>
+
+<input id="search" placeholder="بحث..." oninput="renderOrders()">
+
+<h3>💰 Prices</h3>
+<input id="pubg" placeholder="PUBG">
+<input id="ff" placeholder="FF">
+<button onclick="savePrices()">Save</button>
+
+<h3>📦 Orders</h3>
+<div id="orders"></div>
+
+<button onclick="back()">رجوع</button>
+
+</div>
+
+<script>
+
+var firebaseConfig = {
+  apiKey: "PUT KEY",
+  authDomain: "store7-b988b.firebaseapp.com",
+  databaseURL: "https://store7-b988b-default-rtdb.firebaseio.com"
+};
+
+firebase.initializeApp(firebaseConfig);
+var auth = firebase.auth();
+var db = firebase.database();
+
+// تسجيل
+function register(){ auth.createUserWithEmailAndPassword(email.value,password.value); }
+function login(){ auth.signInWithEmailAndPassword(email.value,password.value); }
+
+// Google
+function googleLogin(){
+  auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+}
+
+// Facebook
+function facebookLogin(){
+  auth.signInWithPopup(new firebase.auth.FacebookAuthProvider());
+}
+
+// Phone
+window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha');
+function sendCode(){
+  auth.signInWithPhoneNumber(phone.value,recaptchaVerifier)
+  .then(res=>{
+    let code=prompt("code");
+    res.confirm(code);
+  });
+}
+
+// متابعة المستخدم
+auth.onAuthStateChanged(user=>{
+  if(user){
+    db.ref("users/"+user.uid).once("value").then(snap=>{
+      if(snap.val()?.banned){
+        alert("تم حظرك ❌");
+        logout();
+      }else{
+        db.ref("users/"+user.uid).set({
+          provider:user.providerData[0].providerId,
+          banned:false
+        });
+        authDiv.style.display="none";
+        store.classList.remove("hidden");
+      }
+    });
+  }
+});
+
+// منتجات
+db.ref("prices").on("value",s=>{
+  let p=s.val()||{pubg:50,ff:40};
+  products.innerHTML=`
+  <div class="card">PUBG ${p.pubg}<button onclick="order('PUBG')">طلب</button></div>
+  <div class="card">FF ${p.ff}<button onclick="order('FF')">طلب</button></div>
+  `;
+});
+
+// طلب
+function order(game){
+  let id=prompt("ID");
+  db.ref("orders").push({
+    game,id,user:auth.currentUser.uid,status:"pending"
+  });
+}
+
+// ADMIN
+function openAdmin(){
+  store.classList.add("hidden");
+  admin.classList.remove("hidden");
+}
+
+function back(){
+  admin.classList.add("hidden");
+  store.classList.remove("hidden");
+}
+
+// حفظ أسعار
+function savePrices(){
+  db.ref("prices").set({
+    pubg:pubg.value,
+    ff:ff.value
+  });
+}
+
+let allOrders={};
+
+// عرض الطلبات
+db.ref("orders").on("value",s=>{
+  allOrders=s.val()||{};
+  renderOrders();
+});
+
+function renderOrders(){
+  let q=search.value.toLowerCase();
+  let html="";
+  let count=0;for(let k in allOrders){
     let o=allOrders[k];
 
     if(q && !o.game.toLowerCase().includes(q)) continue;
