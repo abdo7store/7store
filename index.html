@@ -1,0 +1,38 @@
+for(let k in allOrders){
+    let o=allOrders[k];
+
+    if(q && !o.game.toLowerCase().includes(q)) continue;
+
+    count++;
+
+    html+=`
+    <div class="card ${o.status=='تم'?'done':'pending'}">
+      ${o.game} - ${o.id} - ${o.status}
+      <button onclick="done('${k}')">✔️</button>
+      <button onclick="ban('${o.user}')">🚫</button>
+    </div>`;
+  }
+
+  orders.innerHTML=html;
+  stats.innerHTML="عدد الطلبات: "+count;
+}
+
+// تم
+function done(id){
+  db.ref("orders/"+id).update({status:"تم"});
+}
+
+// حظر
+function ban(uid){
+  db.ref("users/"+uid+"/banned").set(true);
+}
+
+// خروج
+function logout(){
+  auth.signOut();
+}
+
+</script>
+
+</body>
+</html>
